@@ -1,0 +1,11 @@
+{
+  "_comentario": "Renomeie para tiktok-tokens.json e preencha com valores reais. NÃO commite o arquivo real (já está no .gitignore).",
+  "access_token": "act.example...",
+  "refresh_token": "rft.example...",
+  "expires_in": 86400,
+  "refresh_expires_in": 31536000,
+  "open_id": "-000cMA_laeECJm5HrPdpVk1yMm4-6AW9UvR",
+  "client_key": "sbaw63pv9quvx62xp8",
+  "client_secret": "PREENCHER_CLIENT_SECRET",
+  "created_at": 0
+}

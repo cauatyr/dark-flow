@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DARKFLOW</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ============ MODAL DE IDENTIFICAÇÃO ============ -->
+  <div id="modal-login" class="modal-overlay">
+    <div class="modal-card">
+      <h1 class="modal-titulo">DARK<span>FLOW</span><em class="studio-tag">STUDIO</em></h1>
+      <p class="modal-subtitulo">— identifique-se para entrar —</p>
+      <input id="input-nome" type="text" placeholder="seu nome" maxlength="40" autocomplete="off" />
+      <button id="btn-entrar">ENTRAR <span class="seta">→</span></button>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" class="hidden">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="logo" data-text="DARKFLOW">DARK<span>FLOW</span></div>
+      <div class="header-status">
+        <button id="btn-som" class="btn-som hidden" type="button" aria-label="som ambiente" title="som ambiente">🔇</button>
+        <span id="status-dot" class="status-dot"></span>
+        <span id="status-texto">conectando</span>
+        <span class="header-user-chip"><span id="header-nome"></span></span>
+      </div>
+    </header>
+
+    <!-- Som ambiente (carrega só se o arquivo existir; botão fica escondido até lá) -->
+    <audio id="ambient-audio" src="audio/ambient.mp3" loop preload="none"></audio>
+
+    <!-- LAYOUT -->
+    <div class="layout">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+
+        <div class="sidebar-secao">
+          <h3 class="secao-label">AÇÕES</h3>
+          <button class="btn-acao" data-cmd="/gerar">
+            <span class="num">01</span><span class="lbl">criar vídeo</span><span class="cmd">/gerar</span>
+          </button>
+          <button class="btn-acao" data-cmd="/ideias">
+            <span class="num">02</span><span class="lbl">ideias</span><span class="cmd">/ideias</span>
+          </button>
+          <button class="btn-acao" data-cmd="/status">
+            <span class="num">03</span><span class="lbl">status</span><span class="cmd">/status</span>
+          </button>
+          <button class="btn-acao" data-cmd="/ajuda">
+            <span class="num">04</span><span class="lbl">ajuda</span><span class="cmd">/ajuda</span>
+          </button>
+        </div>
+
+        <div class="divisor"></div>
+
+        <div class="sidebar-secao">
+          <h3 class="secao-label">EM PRODUÇÃO</h3>
+          <div id="lista-videos" class="lista-videos">
+            <div class="vazio">— nada na fila —</div>
+          </div>
+        </div>
+
+        <div class="sidebar-legenda">
+          <span><span class="leg-dot">🟢</span>concluído</span>
+          <span><span class="leg-dot">🟡</span>processando</span>
+          <span><span class="leg-dot">🔴</span>erro</span>
+        </div>
+
+      </aside>
+
+      <!-- CHAT -->
+      <main class="chat">
+        <div class="chat-bg-noise"></div>
+        <div class="chat-bg-vignette"></div>
+        <div class="chat-bg-blob"></div>
+        <div class="chat-bg-scanlines"></div>
+
+        <div id="mensagens" class="mensagens"></div>
+
+        <!-- Painel de detalhe de vídeo (revelado quando user clica num item da sidebar) -->
+        <div id="video-detalhe" class="video-detalhe hidden">
+          <button id="btn-voltar-detalhe" class="btn-voltar-detalhe" type="button">← voltar</button>
+          <div class="detalhe-conteudo"></div>
+        </div>
+
+        <div id="indicador-digitando" class="indicador-digitando hidden">
+          <div class="avatar avatar-agente"></div>
+          <div class="typing-bar">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <div class="campo-mensagem">
+          <textarea id="input-mensagem" placeholder="— o que você quer que o mundo tema..." rows="1"></textarea>
+          <button id="btn-enviar" aria-label="enviar">
+            <span class="icone">⚡</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <div class="hint-tags">
+          <span class="hint-tag" data-fill="/gerar ">/gerar</span>
+          <span class="hint-tag" data-fill="/ideias">/ideias</span>
+          <span class="hint-tag" data-fill="/status">/status</span>
+          <span class="hint-tag" data-fill="/pendentes">/pendentes</span>
+          <span class="hint-tag" data-fill="/ajuda">/ajuda</span>
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ============ INTRO OVERLAY — tela preta + cursor piscando antes do app ============ -->
+  <div id="intro-overlay">
+    <div id="intro-cursor"></div>
+  </div>
+
+  <!-- ============ HEARTBEAT OVERLAY — pulsa vermelho quando vídeo fica pronto ============ -->
+  <div id="heartbeat-overlay"></div>
+
+  <script src="js/app.js"></script>
+  <script>
+    // Hint tags: preenchem o campo mas NÃO enviam.
+    document.querySelectorAll('.hint-tag').forEach(t => {
+      t.addEventListener('click', () => {
+        const inp = document.getElementById('input-mensagem')
+        if (!inp) return
+        inp.value = t.dataset.fill || t.textContent.trim()
+        inp.focus()
+        inp.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+    })
+
+    // Intro overlay: após 1.2s do load, fade out (0.8s) e remove do DOM.
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const overlay = document.getElementById('intro-overlay')
+        if (!overlay) return
+        overlay.style.transition = 'opacity 0.8s ease'
+        overlay.style.opacity = '0'
+        setTimeout(() => overlay.remove(), 800)
+      }, 1200)
+    })
+  </script>
+</body>
+</html>

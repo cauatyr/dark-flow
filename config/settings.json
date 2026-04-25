@@ -1,0 +1,33 @@
+{
+  "porta": 3000,
+  "claude": {
+    "modelo": "claude-opus-4-5",
+    "max_tokens": 8000,
+    "system_cache": true
+  },
+  "darkflow": {
+    "supabase_url": "https://ejansudxykwjwgnhdwma.supabase.co",
+    "voz_padrao": "Ronald",
+    "subtitle_color": "Amarelo",
+    "auto_subtitles": true,
+    "language": "pt"
+  },
+  "monitor": {
+    "intervalo_minutos": 50,
+    "auto_desativar_se_vazio": true
+  },
+  "youtube": {
+    "tags_padrao": ["historiadeterror", "terror", "medo", "creepy", "sussurrosnaescuridao"],
+    "categoria_id": "22",
+    "privacy": "public"
+  },
+  "duracoes": {
+    "30 segundos": {"value": "30-segundos", "tipo": "tiktok", "minChar": 200, "maxChar": 300, "imagens": 5},
+    "45 segundos": {"value": "45-segundos", "tipo": "tiktok", "minChar": 300, "maxChar": 400, "imagens": 5},
+    "1 minuto":    {"value": "1-minuto",    "tipo": "tiktok", "minChar": 450, "maxChar": 600, "imagens": 10},
+    "2 minutos":   {"value": "2-minutos",   "tipo": "tiktok", "minChar": 900, "maxChar": 1100, "imagens": 10},
+    "3 minutos":   {"value": "3-minutos",   "tipo": "tiktok", "minChar": 1500, "maxChar": 1800, "imagens": 15},
+    "5 minutos":   {"value": "5-minutos",   "tipo": "tiktok", "minChar": 3400, "maxChar": 3750, "imagens": 20},
+    "12 minutos":  {"value": "12-minutos",  "tipo": "longo",  "minChar": 8000, "maxChar": 9000, "imagens": 35}
+  }
+}

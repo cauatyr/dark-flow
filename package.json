@@ -1,0 +1,39 @@
+{
+  "name": "darkflow-agent",
+  "version": "1.0.0",
+  "description": "DarkFlow Agent - Sistema completo de automação de vídeos com chat web",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "monitor": "node scripts/monitor-videos.js",
+    "upload-yt": "node scripts/upload-youtube.js",
+    "upload-tt": "node scripts/upload-tiktok.js"
+  },
+  "keywords": [
+    "darkflow",
+    "youtube",
+    "tiktok",
+    "automation",
+    "horror"
+  ],
+  "author": "Cauatyr",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@supabase/supabase-js": "^2.104.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "form-data": "^4.0.1",
+    "fs-extra": "^11.2.0",
+    "googleapis": "^144.0.0",
+    "node-cron": "^3.0.3",
+    "node-fetch": "^2.7.0",
+    "playwright": "^1.48.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
