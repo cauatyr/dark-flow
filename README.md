@@ -1,74 +1,95 @@
 # 🔴 DarkFlow Agent
 
-Sistema completo de automação de vídeos de terror para YouTube e TikTok com interface web (chat) e cron de monitoramento.
+Estúdio de automação de vídeos de terror para shorts (TikTok/Reels/Shorts) e vídeos longos. Interface web em chat preto/vermelho, geração de roteiro via Claude Code CLI, criação automática de cards no DarkFlow via API direta (Supabase) e monitoramento em background até o vídeo ficar pronto.
+
+> Quando o vídeo termina, o agente avisa no chat. **Não posta em lugar nenhum** — o download e a publicação ficam por conta do usuário direto pelo painel do DarkFlow.
+
+---
+
+## 📁 Estrutura
 
 ```
 darkflow-agent/
-├── server/      # Backend Node.js (Express + WebSocket + Claude API)
-├── frontend/    # Interface web (HTML/CSS/JS puro, design preto/vermelho)
-├── api/         # Integrações: DarkFlow (Supabase), YouTube, TikTok
-├── scripts/     # Cron monitor (50min) + uploads
-├── stories/     # Roteiros salvos
-├── videos/      # Vídeos baixados
-├── audio/       # Trilha sonora padrão (.mp3)
-├── memory/      # Regras críticas + IDs criados
-├── config/      # Settings + credentials (NÃO commitar)
-└── logs/        # Log diário e do monitor
+├── server/        # Express + WebSocket + chamada Claude CLI (server/index.js, server/chat.js)
+├── frontend/      # UI "DarkFlow Studio" — HTML/CSS/JS puro, design preto/vermelho
+├── api/           # Integrações: auth-darkflow, darkflow_api, voice-selector, tiktok_api*
+├── scripts/       # monitor-videos (cron 50min) + helpers OAuth órfãos
+├── stories/       # Roteiros aprovados salvos em .md
+├── audio/         # trilha-padrao.mp3 (música usada em todo card)
+├── memory/        # SESSAO-ATUAL.md, CRITICAL-DARKFLOW-AUTOMATION.md, videos-criados-por-mim.json
+├── config/        # credentials.json (NÃO commitar — está no .gitignore)
+└── logs/          # Logs do monitor
+
+* api/tiktok_api.js, api/youtube_api.js e scripts/upload-*.js permanecem no repo mas
+  estão fora do fluxo principal (upload automático foi removido em 2026-04-24).
 ```
 
 ---
 
 ## 🚀 Setup
 
-### 1. Instalar dependências
+### 1. Pré-requisitos
+
+- **Node.js 18+**
+- **Claude Code CLI instalado e autenticado** — o agente roda `claude -p` via `child_process.spawn`. Não precisa de `ANTHROPIC_API_KEY` pago: o sistema reaproveita a auth OAuth do próprio Claude Code.
+- Acesso a uma conta DarkFlow (https://app.darkflow.io) com saldo/permissão para criar vídeos.
+
+### 2. Instalar dependências
 
 ```bash
 cd darkflow-agent
 npm install
-npx playwright install chromium   # apenas se quiser usar o fallback Playwright para buscar voice_id
+npx playwright install chromium    # usado no fallback de login do DarkFlow
 ```
 
-### 2. Configurar `.env`
+### 3. `.env`
 
-Copie `.env.example` para `.env` e preencha:
+Copie `.env.example` → `.env` e preencha o que se aplica. Valores realmente necessários para o fluxo principal:
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-api03-...
-SUPABASE_ANON_KEY=eyJ...   (já vem preenchida no .env.example)
-DARKFLOW_REFRESH_TOKEN=    (ver passo 3)
-
-YOUTUBE_CLIENT_ID=...
-YOUTUBE_CLIENT_SECRET=...
-YOUTUBE_REFRESH_TOKEN=...
+SUPABASE_URL=https://ejansudxykwjwgnhdwma.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_USER_ID=...
+PORT=3000
 ```
 
-### 3. Obter o refresh token do DarkFlow
+`ANTHROPIC_API_KEY`, `DARKFLOW_REFRESH_TOKEN` e os blocos `YOUTUBE_*` / `TIKTOK_*` são legados — não são lidos pelo fluxo atual. Pode ignorar.
 
-1. Abra https://app.darkflow.io e faça login
-2. Pressione **F12** → aba **Console**
-3. Cole e execute:
-   ```js
-   JSON.parse(localStorage.getItem('sb-ejansudxykwjwgnhdwma-auth-token')).refresh_token
-   ```
-4. Copie o valor (string começando com algo como `rt.abc...`) e cole em `DARKFLOW_REFRESH_TOKEN` no `.env`
+### 4. Auth do DarkFlow (automática)
 
-> O sistema renova esse token automaticamente a cada chamada e salva o novo em `memory/.refresh-token`.
+O módulo `api/auth-darkflow.js` cuida sozinho:
 
-### 4. Trilha sonora
+1. Lê `config/credentials.json` (access + refresh token).
+2. Se o access estiver expirado, renova via refresh token.
+3. Se o refresh falhar, faz fallback para login completo via Playwright (email/senha embutidos no módulo) e regrava o `credentials.json`.
 
-Coloque seu arquivo MP3 padrão em:
+Para reprovisionar manualmente:
+
+```bash
+node scripts/get-initial-token.js
+```
+
+> `config/credentials.json` está no `.gitignore`. Nunca commitar.
+
+### 5. Trilha sonora
+
+Coloque um MP3 padrão em:
 
 ```
 audio/trilha-padrao.mp3
 ```
 
-### 5. TikTok (opcional para upload)
+Sem esse arquivo, qualquer tentativa de criar vídeo retorna erro no chat.
 
-Renomeie `tiktok-tokens.json.example` para `tiktok-tokens.json` e preencha com valores reais (ver `memory/TIKTOK-AUTH.md`).
+### 6. Som ambiente do frontend (opcional)
 
-### 6. YouTube OAuth (uma vez)
+O botão de áudio ambiente só aparece no header se existir:
 
-Configure um projeto em https://console.cloud.google.com com **YouTube Data API v3** ativada, baixe `client_id` + `client_secret`, e gere o refresh token via fluxo OAuth (escopo `youtube.upload`).
+```
+frontend/audio/ambient.mp3
+```
+
+O JS faz `fetch HEAD` e revela o botão automaticamente quando o arquivo está presente. Volume fixo em 10%, persistido em `localStorage.darkflow_ambient`.
 
 ---
 
@@ -78,11 +99,20 @@ Configure um projeto em https://console.cloud.google.com com **YouTube Data API 
 npm start
 ```
 
-Abre em **http://localhost:3000**.
+Acessa em **http://localhost:3000**. Outras máquinas na mesma rede acessam via `http://<seu-ip>:3000`.
 
-Qualquer pessoa na mesma rede acessa via `http://<seu-ip>:3000`.
+Boot mostra:
 
-### Rodar o monitor manualmente
+```
+🔴 DARKFLOW AGENT online
+📡 http://localhost:3000
+✅ Sessão renovada via refresh token
+👁️  Realtime watcher SUBSCRIBED (auto-render)
+```
+
+> Avisos do tipo `⚠️ <uuid> não encontrado` no boot são **esperados**: são cards criados em outras contas e bloqueados pelo RLS do Supabase. Não é bug.
+
+### Rodar o monitor isolado
 
 ```bash
 npm run monitor
@@ -94,92 +124,139 @@ npm run monitor
 
 | Comando | Ação |
 |---|---|
-| `/gerar` | Inicia fluxo (tema → formato → duração) |
-| `/gerar [tema]` | Inicia já com tema definido |
-| `/ideias` | 10 ideias de terror geradas pela IA |
-| `/aprovar` | Aprova roteiro pendente |
-| `/rejeitar` | Rejeita e pede outro |
-| `/status` | Status de todos os vídeos |
+| `/gerar` | Inicia fluxo guiado (tema → formato → duração) |
+| `/gerar [tema]` | Pula direto pro formato com o tema já fixado |
+| `/ideias` | 10 sugestões de história de terror geradas pela IA |
+| `/aprovar` | Aprova o roteiro pendente — cria o card no DarkFlow |
+| `/rejeitar` | Rejeita o roteiro pendente e abre espaço para gerar outro |
+| `/status` | Status agregado dos vídeos em produção |
 | `/pendentes` | Roteiros aguardando aprovação |
 | `/ajuda` | Lista de comandos |
 
-Conversa livre também funciona: *"cria uma história de hospital abandonado"*.
+Conversa livre também funciona: *"cria uma história de hospital abandonado em 1 minuto"*. O agente vai puxar contexto da conversa e abrir o fluxo correspondente.
+
+### Durações suportadas
+
+| Duração | Formato | Imagens | Faixa de caracteres |
+|---|---|---|---|
+| 30s / 1m / 2m / 3m / 5m | TikTok vertical | 5 / 6 / 10 / 15 / 20 | conforme tabela em `server/chat.js` |
+| 12m | Vídeo longo | 35 | 8000–9000 |
 
 ---
 
-## 🎨 Design
+## 🎨 Frontend — DarkFlow Studio
 
-- **Nome:** DarkFlow
-- **Paleta:** preto (#0a0a0a) e vermelho (#e63946)
-- **Fontes:** Syne (display), Space Grotesk (UI), JetBrains Mono (código/chat)
-- **Layout:** sidebar com vídeos em produção + ações rápidas, chat central com avatares e indicador de "digitando"
+Paleta `#050505 / #e8213a / #ede9e3`. Fontes Anton (display), Crimson Pro (texto), JetBrains Mono (código).
+
+**Features mantidas (estado final 2026-04-24 noite):**
+
+1. **Grain global** — película 16mm via SVG noise + `grain-drift` 8s steps(4)
+2. **Glitch logo DARKFLOW** — RGB split ciano/vermelho, ~10s por ciclo
+3. **Borda vermelha sangrando** nas mensagens do agente (2px, gradient vertical)
+4. **Sidebar status 🟢🟡🔴** — pronto / processando / erro, tooltip nativo + glow
+5. **Legenda no rodapé da sidebar**
+6. **Lista colapsa em 5 + "ver todos (+N)"**
+7. **Botão enviar ⚡** — pulse vermelho no hover, spinner branco em loading
+8. **Som ambiente** infra (revela botão se `frontend/audio/ambient.mp3` existir)
+9. **Progresso real-time** via WebSocket — barra fina vermelha + "Gerando narração... 45%"
+10. **Painel de detalhe** ao clicar num vídeo da sidebar — título, ID, status, duração, data pt-BR, link de download
+11. **Placeholder do input**: *"— o que você quer que o mundo tema..."*
+
+**Animações de impacto:**
+
+12. **Blood particles** — 2-4 partículas animadas via Web Animations API ao receber mensagem do agente
+13. **Sidebar hover-reveal** — keyframe glitch+glow nos títulos
+14. **Intro overlay** — tela preta + cursor piscando 1.2s + fade 0.8s em todo refresh
+15. **Heartbeat pulse + áudio 60Hz** — quando chega `notificacao-global` (vídeo concluído)
+
+**Stack de z-index:** `99999` intro, `99998` heartbeat, `9999` grain + blood particles, `5` painel detalhe, `100` modal de login.
 
 ---
 
-## ⏰ Cron Monitor
+## ⏰ Monitor (cron 50min)
 
-- **Intervalo:** exatamente **50 minutos** (`*/50 * * * *`)
-- **Ativa automaticamente** quando um vídeo é criado
-- **Desativa automaticamente** quando a fila fica vazia
-- Quando um vídeo termina:
-  - Baixa o arquivo MP4
-  - Verifica título + status no card
-  - Posta no YouTube (Data API v3)
-  - Envia para inbox do TikTok
-  - Notifica todos os usuários conectados via WebSocket
+- Liga sozinho no boot se `memory/videos-criados-por-mim.json` tem cards pendentes
+- Liga ao criar vídeo novo, desliga quando a fila esvazia
+- Em paralelo, **Realtime watcher** do Supabase reage a `payload.old != payload.new` e dispara `tipo:'video-progresso'` no WebSocket — atualiza barra de progresso na sidebar e no painel de detalhe sem refresh
+- Quando `gerar-video` chega em `progress=100 && !progress_message`, dispara render automático
+- Quando o status vira `concluido + download_url`:
+  - Marca `pronto:true, notificado:true` no JSON local
+  - Manda `notificacao-global` no WS → frontend dispara heartbeat + áudio + mensagem do agente
+  - **Não posta em lugar nenhum.** O usuário baixa pelo DarkFlow manualmente.
 
 ---
 
 ## 🔐 Regras críticas
 
-Leia `memory/CRITICAL-DARKFLOW-AUTOMATION.md` antes de modificar qualquer coisa relacionada a:
+Antes de mexer em qualquer ponto do fluxo de criação, leia `memory/CRITICAL-DARKFLOW-AUTOMATION.md`. Resumo:
 
-- Autenticação Supabase (sempre refresh token)
-- Criação via API direta (nunca wizard)
-- Voice ID dinâmico (nunca hardcode)
-- Bucket de música (`avatars`, não `audio`)
-- Cron exato de 50 minutos
+- **Sempre** API direta via Supabase, **nunca** o wizard
+- **Sempre** voice_id buscado dinamicamente, **nunca** hardcode
+- Bucket de música é `avatars`, **não** `audio`
+- Cron é exatamente 50 minutos (`*/50 * * * *`)
+- Quantidade de imagens é múltiplo de 5
+- Subtítulo amarelo
+- Aprovação do roteiro é **explícita** (`/aprovar` ou "aprovado")
+
+**Fallback DarkVI/Ronald** quando ElevenLabs cair:
+
+```js
+voice_provider: 'darkvi'
+voice: 'cfefb4d6-f863-47ba-a1a4-ef8178410da7'
+voice_name: 'Ronald'
+```
+
+O backend normaliza `darkvi` → grava `darkflow_voices` no banco. PATCH em card parado **não** dispara reprocessamento — sempre criar card novo via `criarVideo()`.
 
 ---
 
 ## 🏗️ Arquitetura
 
 ```
-[Frontend HTML+JS+WebSocket]
-         ⇅
-[server/index.js Express+ws]
-         ⇅
-[server/chat.js — Claude API + comandos]
-         ⇅
-[api/darkflow_api.js] [api/youtube_api.js] [api/tiktok_api.js]
-         ⇅                    ⇅                    ⇅
-   Supabase REST       YouTube Data v3       TikTok Open API
+[Frontend HTML+CSS+JS+WebSocket]
+              ⇅
+[server/index.js — Express + ws]
+              ⇅
+[server/chat.js — comandos + spawn('claude','-p')]
+              ⇅
+[api/auth-darkflow.js  ⇄  api/darkflow_api.js  ⇄  api/voice-selector.js]
+              ⇅
+        Supabase REST + Realtime
 
-[scripts/monitor-videos.js — cron 50min]
-         ⇅
-   videos-criados-por-mim.json
+[scripts/monitor-videos.js — cron 50min + Realtime watcher]
+              ⇅
+   memory/videos-criados-por-mim.json
 ```
+
+**Não há `max_tokens` configurável**: a chamada ao Claude é via CLI. Se precisar de mais tempo de geração, ajuste `CLI_TIMEOUT_MS` em `server/chat.js` (atualmente 300000ms).
 
 ---
 
 ## 📦 Stack
 
-- **Node.js 18+**
-- **Express + WebSocket (ws)** — servidor + chat em tempo real
-- **@anthropic-ai/sdk** — Claude Opus 4.5 para gerar roteiros
-- **node-cron** — monitor de 50 minutos
-- **googleapis** — YouTube Data API v3
-- **playwright** (opcional) — fallback para buscar `voice_id` se a RPC do Supabase falhar
-- **node-fetch** — chamadas HTTP
+- **Node.js 18+**, CommonJS
+- **Express + ws** — servidor HTTP + WebSocket
+- **@supabase/supabase-js** — Realtime watcher do monitor
+- **node-fetch** — REST direto pro DarkFlow
+- **node-cron** — agendador de 50 min
+- **playwright** — fallback de login automático no DarkFlow
+- **dotenv**, **fs-extra**, **form-data**
+- **Claude Code CLI** (`claude -p`) — não é dependência npm; precisa estar instalado e autenticado no sistema
 
 ---
 
 ## 🐛 Erros conhecidos
 
-| Erro | Causa | Solução |
+| Sintoma | Causa | O que fazer |
 |---|---|---|
-| `Refresh token do DarkFlow ausente` | `.env` não preenchido | Configure `DARKFLOW_REFRESH_TOKEN` |
-| `VALIDATION_VOICE_INVALID` | voice_id desatualizado | Já tratado: busca dinâmica |
-| `Erro upload da música` | Bucket errado | Já tratado: usa `avatars` |
-| `tiktok-tokens.json não encontrado` | Arquivo ausente | Renomeie o `.example` e preencha |
-| `Arquivo audio/trilha-padrao.mp3 não encontrado` | MP3 não está na pasta | Coloque seu arquivo lá |
+| `Arquivo audio/trilha-padrao.mp3 não encontrado` | MP3 padrão não está na pasta | Coloque um MP3 em `audio/trilha-padrao.mp3` |
+| `Refresh token expirado` repetido | Refresh do DarkFlow revogado | `node scripts/get-initial-token.js` |
+| `[monitor] ⚠️ <uuid> não encontrado` no boot | Card criado em outra conta (RLS) | Esperado. Para limpar, edite `memory/videos-criados-por-mim.json` |
+| Botão de som não aparece | `frontend/audio/ambient.mp3` ausente | Coloque o arquivo; o botão revela sozinho |
+| `claude: command not found` no spawn | CLI do Claude Code não está no PATH | Instale o Claude Code e teste `claude --version` antes de subir o server |
+
+---
+
+## 📜 Licença
+
+MIT — Cauatyr.
