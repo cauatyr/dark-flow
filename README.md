@@ -144,6 +144,41 @@ Conversa livre também funciona: *"cria uma história de hospital abandonado em 
 
 ---
 
+## 🖼️ Geração dos prompts de imagem
+
+Os prompts das imagens **não são template fixo**. Quando o roteiro é aprovado, o agente chama o Claude CLI uma segunda vez com um prompt específico (estilo "diretor de fotografia") em `server/chat.js:gerarInstrucoesVisuais(tema, roteiro)`. O retorno é um parágrafo único e sequencial que vai direto pro campo `auto_images_instructions` do payload `criarVideo()` — o DarkFlow distribui essas descrições pelas N imagens (5/6/10/15/20/35) na ordem do roteiro.
+
+**Princípios do prompt:**
+
+- **Concreto, não atmosférico** — Claude precisa descrever objetos físicos, cenários específicos e momentos de tensão com os detalhes exatos do roteiro. O prompt mostra um par certo/errado pra travar o estilo:
+  - ✅ *"Mãos tremendo segurando álbum de couro marrom antigo aberto, foto preto e branco de família posando em varanda, figura feminina desfocada no fundo com cabelo escuro colado no rosto"*
+  - ❌ *"Ambiente sombrio com atmosfera de terror psicológico e iluminação baixa"*
+- **Sequencial** — descrições aparecem na mesma ordem do roteiro pra cada cena casar com a imagem certa.
+- **Sem markdown, sem "Aqui está:"** — o DarkFlow espera string corrida.
+
+**Estilo visual obrigatório (carimbado em todo prompt):**
+
+- Fotografia cinematográfica granulada, filme de terror anos 70-80
+- Iluminação expressionista: uma fonte de luz dura criando sombras profundas e angulares
+- Paleta: preto, cinza chumbo, sépia escuro, ocasionalmente vermelho dessaturado
+- Elementos de horror concretos: figuras parcialmente visíveis, reflexos impossíveis, objetos fora de lugar, texturas de deterioração
+- Composição perturbadora: ângulos holandeses sutis, espaço negativo ameaçador, profundidade de campo que esconde mais do que revela
+- **Proibido:** fotos coloridas alegres, ambientes limpos, pessoas sorrindo, iluminação natural ensolarada
+- **Restrições:** sem rostos claros e nítidos, sem cenas felizes, sem cores quentes
+
+**Fluxo no boot do card:**
+
+```
+🎨 Gerando instruções visuais do vídeo...   ← gerarInstrucoesVisuais()
+🎬 Criando card via API...                  ← darkflow.criarVideo()
+```
+
+**Fallback** (se o Claude CLI cair): `gerarInstrucoesVisuais` devolve um parágrafo genérico costurado em volta do tema (`server/chat.js:226-227`) — o vídeo ainda é criado, mas com descrições menos específicas. Se notar imagens fora do roteiro, conferir se o log `🎨 Gerando instruções visuais...` apareceu — sumiu = caiu no fallback.
+
+> Ajustar o estilo visual = editar o template em `gerarInstrucoesVisuais` (`server/chat.js:191-220`). Não tem variável de ambiente.
+
+---
+
 ## 🎨 Frontend — DarkFlow Studio
 
 Paleta `#050505 / #e8213a / #ede9e3`. Fontes Anton (display), Crimson Pro (texto), JetBrains Mono (código).
